@@ -3,6 +3,7 @@ import { Gram } from "@gram-ai/functions";
 import { z } from "zod";
 import { executeReadQueryGram } from "./tools/execute-read-query.ts";
 import { executeWriteQueryGram } from "./tools/execute-write-query.ts";
+import { getInsightsGram } from "./tools/get-insights.ts";
 
 const gram = new Gram({
   envSchema: {
@@ -15,6 +16,7 @@ const gram = new Gram({
   },
 })
   .extend(executeReadQueryGram)
-  .extend(executeWriteQueryGram);
+  .extend(executeWriteQueryGram)
+  .extend(getInsightsGram);
 
 export default gram;
