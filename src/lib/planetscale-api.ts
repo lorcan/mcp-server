@@ -118,6 +118,11 @@ async function apiRequest<T>(
     );
   }
 
+  // Handle 204 No Content responses (e.g., DELETE requests)
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -240,4 +245,28 @@ export async function createPostgresCredentials(
     database_name: response.database_name,
     branch: response.branch,
   };
+}
+
+/**
+ * Delete Postgres role credentials, optionally transferring ownership of
+ * any objects created by this role to a successor role.
+ *
+ * @see https://planetscale.com/docs/api/reference/delete_role
+ */
+export async function deletePostgresRole(
+  organization: string,
+  database: string,
+  branch: string,
+  roleId: string,
+  authHeader: string,
+  options?: { successor?: string }
+): Promise<void> {
+  await apiRequest<void>(
+    `/organizations/${encodeURIComponent(organization)}/databases/${encodeURIComponent(database)}/branches/${encodeURIComponent(branch)}/roles/${encodeURIComponent(roleId)}`,
+    authHeader,
+    {
+      method: "DELETE",
+      body: options?.successor ? JSON.stringify({ successor: options.successor }) : undefined,
+    }
+  );
 }

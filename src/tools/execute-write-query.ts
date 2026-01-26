@@ -4,6 +4,7 @@ import {
   getDatabase,
   createVitessCredentials,
   createPostgresCredentials,
+  deletePostgresRole,
   PlanetScaleAPIError,
 } from "../lib/planetscale-api.ts";
 import {
@@ -97,12 +98,21 @@ export const executeWriteQueryGram = new Gram().tool({
           authHeader
         );
 
-        // For CREATE statements, set the role to 'postgres' so objects are owned
-        // by a shared role rather than the ephemeral user. This allows future
-        // ephemeral users to manage (alter, drop, add indexes to) these objects.
-        const result = await executePostgresQuery(credentials, query, {
-          ownerRole: "postgres",
-        });
+        const result = await executePostgresQuery(credentials, query);
+
+        // Delete the role and transfer ownership of any objects created by this
+        // role to the 'postgres' role. This ensures future ephemeral users can
+        // manage (alter, drop, add indexes to) objects created in this session.
+        // See: https://planetscale.com/docs/api/reference/delete_role
+        await deletePostgresRole(
+          organization,
+          database,
+          branch,
+          credentials.id,
+          authHeader,
+          { successor: "postgres" }
+        );
+
         return ctx.json(result);
       }
     } catch (error) {

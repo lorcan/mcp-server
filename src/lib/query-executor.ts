@@ -70,20 +70,11 @@ export async function executeVitessQuery(
 }
 
 /**
- * Check if a query is a DDL statement that creates objects
- */
-function isCreateStatement(query: string): boolean {
-  const normalized = query.trim().toUpperCase();
-  return normalized.startsWith("CREATE ");
-}
-
-/**
  * Execute a query against a Postgres database using @neondatabase/serverless
  */
 export async function executePostgresQuery(
   credentials: PostgresCredentials,
-  query: string,
-  options?: { ownerRole?: string }
+  query: string
 ): Promise<QueryResult> {
   const startTime = performance.now();
 
@@ -99,23 +90,11 @@ export async function executePostgresQuery(
 
   const sql = neon(connectionUrl);
 
+  // Use sql.query() for raw string queries (not parameterized)
+  // Note: This is safe because we're executing user-provided SQL directly
+  // The user is responsible for the query content
   const taggedQuery = addSqlCommenterTag(query);
-  let result: unknown[];
-
-  // For CREATE statements, use a transaction to SET ROLE first so the created
-  // object is owned by a shared role (e.g., 'postgres') instead of the ephemeral user.
-  // This allows future ephemeral users to manage these objects.
-  if (options?.ownerRole && isCreateStatement(query)) {
-    result = await sql.transaction([
-      sql`SELECT set_config('role', ${options.ownerRole}, true)`,
-      sql.query(taggedQuery),
-    ]);
-    // Transaction returns array of results, we want the last one (the actual query)
-    result = (result as unknown[][])[1] ?? [];
-  } else {
-    result = await sql.query(taggedQuery);
-  }
-
+  const result = await sql.query(taggedQuery);
   const executionTime = performance.now() - startTime;
 
   // Result is an array of row objects
@@ -123,7 +102,7 @@ export async function executePostgresQuery(
 
   // Extract column names from the first row
   const firstRow = rows[0];
-  const columns = firstRow !== undefined ? Object.keys(firstRow as Record<string, unknown>) : [];
+  const columns = firstRow !== undefined ? Object.keys(firstRow) : [];
 
   return {
     success: true,
