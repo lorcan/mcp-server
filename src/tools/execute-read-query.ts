@@ -4,6 +4,8 @@ import {
   getBranch,
   createVitessCredentials,
   createPostgresCredentials,
+  deleteVitessPassword,
+  deletePostgresRole,
   PlanetScaleAPIError,
 } from "../lib/planetscale-api.ts";
 import {
@@ -75,6 +77,16 @@ export const executeReadQueryGram = new Gram().tool({
         );
 
         const result = await executeVitessQuery(credentials, query);
+
+        // Delete the password credentials after query execution
+        await deleteVitessPassword(
+          organization,
+          database,
+          branch,
+          credentials.id,
+          authHeader
+        );
+
         return ctx.json(result);
       } else {
         // Postgres database - create role with read permissions
@@ -89,6 +101,16 @@ export const executeReadQueryGram = new Gram().tool({
         credentials.replica = useReplica;
 
         const result = await executePostgresQuery(credentials, query);
+
+        // Delete the role credentials after query execution
+        await deletePostgresRole(
+          organization,
+          database,
+          branch,
+          credentials.id,
+          authHeader
+        );
+
         return ctx.json(result);
       }
     } catch (error) {

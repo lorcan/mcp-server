@@ -73,12 +73,12 @@ export const executeWriteQueryGram = new Gram().tool({
       const db = await getDatabase(organization, database, authHeader);
 
       if (db.kind === "mysql") {
-        // Vitess database - create password with readwriter role
+        // Vitess database - create password with admin role for DDL support
         const credentials = await createVitessCredentials(
           organization,
           database,
           branch,
-          "readwriter",
+          "admin",
           authHeader
         );
 

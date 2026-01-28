@@ -270,3 +270,20 @@ export async function deletePostgresRole(
     }
   );
 }
+
+/**
+ * Delete Vitess password credentials.
+ */
+export async function deleteVitessPassword(
+  organization: string,
+  database: string,
+  branch: string,
+  passwordId: string,
+  authHeader: string
+): Promise<void> {
+  await apiRequest<void>(
+    `/organizations/${encodeURIComponent(organization)}/databases/${encodeURIComponent(database)}/branches/${encodeURIComponent(branch)}/passwords/${encodeURIComponent(passwordId)}`,
+    authHeader,
+    { method: "DELETE" }
+  );
+}
