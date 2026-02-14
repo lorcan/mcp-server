@@ -83,7 +83,7 @@ async function fetchClusterSizeSkus(
   engine: "mysql" | "postgresql",
   authHeader: string
 ): Promise<ClusterSizeSkuRaw[]> {
-  const url = `${API_BASE}/organizations/${encodeURIComponent(organization)}/cluster_size_skus?engine=${engine}&rates=true`;
+  const url = `${API_BASE}/organizations/${encodeURIComponent(organization)}/cluster-size-skus?engine=${engine}&rates=true`;
 
   const response = await fetch(url, {
     method: "GET",
