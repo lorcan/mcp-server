@@ -536,8 +536,8 @@ export const getInsightsGram = new Gram().tool({
           tabletType,
         };
 
-        // Fetch summary and individual executions in parallel
-        const [summary, entries] = await Promise.all([
+        // Fetch summary and individual executions in parallel, tolerating partial failures
+        const [summaryResult, entriesResult] = await Promise.allSettled([
           fetchFingerprintSummary(
             organization,
             database,
@@ -556,6 +556,10 @@ export const getInsightsGram = new Gram().tool({
           ),
         ]);
 
+        const summary =
+          summaryResult.status === "fulfilled" ? summaryResult.value : null;
+        const entries =
+          entriesResult.status === "fulfilled" ? entriesResult.value : [];
         const executions = entries.map(filterSelectedEntry);
         return ctx.json({
           mode: "fingerprint",
