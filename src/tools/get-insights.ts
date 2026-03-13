@@ -157,7 +157,8 @@ async function fetchInsights(
   limit: number,
   authHeader: string,
   tabletType?: string,
-  fields?: string[]
+  fields?: string[],
+  q?: string
 ): Promise<InsightsEntry[]> {
   let url = `${API_BASE}/organizations/${encodeURIComponent(organization)}/databases/${encodeURIComponent(database)}/branches/${encodeURIComponent(branch)}/insights?per_page=${limit}&sort=${sortBy}&dir=desc`;
   if (tabletType) {
@@ -165,6 +166,9 @@ async function fetchInsights(
   }
   if (fields && fields.length > 0) {
     url += `&${fields.map((f) => `fields[]=${encodeURIComponent(f)}`).join("&")}`;
+  }
+  if (q) {
+    url += `&q=${encodeURIComponent(q)}`;
   }
 
   const response = await fetch(url, {
@@ -465,6 +469,24 @@ export const getInsightsGram = new Gram().tool({
       .describe(
         "Request specific metric fields from the API (e.g. ['query', 'count', 'rowsRead', 'rowsAffected', 'rowsReadPerReturned', 'egressBytes', 'indexes', 'maxShardQueries']). Ignored when fingerprint is provided."
       ),
+    query: z
+      .string()
+      .optional()
+      .describe(
+        'Filter insights by search query. Supports plain text matching and structured filters: ' +
+        'exact match with quotes ("select count"), ' +
+        'statement_type:select|delete|update|insert, ' +
+        'table:table_name, ' +
+        'keyspace:keyspace_name, ' +
+        'table_keyspace:keyspace_name, ' +
+        'index:index_name or index:table.index_name, ' +
+        'indexed:true|false, ' +
+        'multishard:true|false, ' +
+        'query_count:>N or query_count:<N, ' +
+        'p99:>N or p50:<N (ms), ' +
+        'max_latency:>N (ms). ' +
+        'Ignored when fingerprint is provided.'
+      ),
     fingerprint: z
       .string()
       .optional()
@@ -518,6 +540,7 @@ export const getInsightsGram = new Gram().tool({
       const limit = Math.min(input["limit"] ?? 5, 20); // Cap at 20
       const tabletType = input["tablet_type"];
       const fields = input["fields"];
+      const q = input["query"];
       const fingerprint = input["fingerprint"];
 
       const authHeader = getAuthHeader(env);
@@ -590,7 +613,8 @@ export const getInsightsGram = new Gram().tool({
             limit,
             authHeader,
             tabletType,
-            fields
+            fields,
+            q
           );
 
           for (const entry of entries) {
@@ -618,7 +642,8 @@ export const getInsightsGram = new Gram().tool({
           limit,
           authHeader,
           tabletType,
-          fields
+          fields,
+          q
         );
 
         const results = entries.map(filterEntry);
