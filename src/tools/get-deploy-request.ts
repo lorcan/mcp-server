@@ -9,7 +9,15 @@ interface DeployRequestActor {
   display_name?: string;
 }
 
-interface DeployOperationRaw {
+interface ShardOperationRaw {
+  id?: string;
+  shard?: string;
+  state?: string;
+  progress_percentage?: number;
+  eta_seconds?: number;
+}
+
+interface DeployOperationSummaryRaw {
   id?: string;
   state?: string;
   keyspace_name?: string;
@@ -19,9 +27,12 @@ interface DeployOperationRaw {
   eta_seconds?: number;
   progress_percentage?: number;
   can_drop_data?: boolean;
-  deploy_errors?: string | null;
+  deploy_errors?: unknown[];
+  sharded?: boolean;
+  shard_count?: number;
+  shard_names?: string[];
   created_at?: string;
-  updated_at?: string;
+  operations?: ShardOperationRaw[];
 }
 
 interface DeploymentRaw {
@@ -34,7 +45,7 @@ interface DeploymentRaw {
   finished_at?: string | null;
   ready_to_cutover_at?: string | null;
   cutover_at?: string | null;
-  deploy_operations?: DeployOperationRaw[];
+  deploy_operation_summaries?: DeployOperationSummaryRaw[];
 }
 
 interface DeployRequestRaw {
@@ -43,6 +54,8 @@ interface DeployRequestRaw {
   deployment_state: string;
   branch: string;
   into_branch: string;
+  into_branch_sharded?: boolean;
+  into_branch_shard_count?: number;
   approved: boolean;
   actor?: DeployRequestActor;
   closed_by?: DeployRequestActor;
@@ -56,18 +69,32 @@ interface DeployRequestRaw {
   deployment?: DeploymentRaw;
 }
 
-function filterOperation(op: DeployOperationRaw) {
+function filterShardOperation(op: ShardOperationRaw) {
   return {
-    id: op.id,
+    shard: op.shard,
     state: op.state,
-    keyspace_name: op.keyspace_name,
-    table_name: op.table_name,
-    operation_name: op.operation_name,
-    ddl_statement: op.ddl_statement,
-    eta_seconds: op.eta_seconds,
     progress_percentage: op.progress_percentage,
-    can_drop_data: op.can_drop_data,
-    deploy_errors: op.deploy_errors,
+    eta_seconds: op.eta_seconds,
+  };
+}
+
+function filterOperationSummary(summary: DeployOperationSummaryRaw) {
+  return {
+    id: summary.id,
+    state: summary.state,
+    keyspace_name: summary.keyspace_name,
+    table_name: summary.table_name,
+    operation_name: summary.operation_name,
+    ddl_statement: summary.ddl_statement,
+    eta_seconds: summary.eta_seconds,
+    progress_percentage: summary.progress_percentage,
+    can_drop_data: summary.can_drop_data,
+    deploy_errors: summary.deploy_errors,
+    sharded: summary.sharded,
+    shard_count: summary.shard_count,
+    ...(summary.operations && summary.operations.length > 0
+      ? { operations: summary.operations.map(filterShardOperation) }
+      : {}),
   };
 }
 
@@ -78,6 +105,8 @@ function filterDeployRequest(dr: DeployRequestRaw) {
     deployment_state: dr.deployment_state,
     branch: dr.branch,
     into_branch: dr.into_branch,
+    into_branch_sharded: dr.into_branch_sharded,
+    into_branch_shard_count: dr.into_branch_shard_count,
     approved: dr.approved,
     actor_name: dr.actor?.display_name ?? null,
     closed_by_name: dr.closed_by?.display_name ?? null,
@@ -100,9 +129,9 @@ function filterDeployRequest(dr: DeployRequestRaw) {
             finished_at: dr.deployment.finished_at,
             ready_to_cutover_at: dr.deployment.ready_to_cutover_at,
             cutover_at: dr.deployment.cutover_at,
-            deploy_operations: (dr.deployment.deploy_operations || []).map(
-              filterOperation
-            ),
+            deploy_operation_summaries: (
+              dr.deployment.deploy_operation_summaries || []
+            ).map(filterOperationSummary),
           },
         }
       : {}),
@@ -112,7 +141,7 @@ function filterDeployRequest(dr: DeployRequestRaw) {
 export const getDeployRequestGram = new Gram().tool({
   name: "get_deploy_request",
   description:
-    "Get details of a specific deploy request by its number, including deployment status, schema change operations, and approval state. Use list_deploy_requests to find deploy request numbers.",
+    "Get details of a specific deploy request by its number, including deployment status, schema change operations with per-shard progress, and approval state. Use list_deploy_requests to find deploy request numbers.",
   inputSchema: {
     organization: z.string().describe("PlanetScale organization name"),
     database: z.string().describe("Database name"),
