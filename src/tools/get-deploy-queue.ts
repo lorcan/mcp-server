@@ -42,7 +42,6 @@ interface PaginatedResponse {
 
 function filterDeployment(d: DeploymentRaw) {
   return {
-    id: d.id,
     state: d.state,
     deploy_request_number: d.deploy_request_number,
     into_branch: d.into_branch,
@@ -67,7 +66,7 @@ function filterDeployment(d: DeploymentRaw) {
 export const getDeployQueueGram = new Gram().tool({
   name: "get_deploy_queue",
   description:
-    "Get the deploy queue for a PlanetScale database, showing deployments that are currently queued or in progress. Useful for checking if there are pending deployments before creating or deploying a new deploy request.",
+    "Get the deploy queue for a PlanetScale database, showing deployments that are currently queued or in progress. Useful for checking if there are pending deployments that may block or delay a new deploy request.",
   inputSchema: {
     organization: z.string().describe("PlanetScale organization name"),
     database: z.string().describe("Database name"),

@@ -9,10 +9,6 @@ import { searchDocumentationGram } from "./tools/search-documentation.ts";
 import { listDeployRequestsGram } from "./tools/list-deploy-requests.ts";
 import { getDeployRequestGram } from "./tools/get-deploy-request.ts";
 import { getDeployQueueGram } from "./tools/get-deploy-queue.ts";
-import { listDeployOperationsGram } from "./tools/list-deploy-operations.ts";
-import { createDeployRequestGram } from "./tools/create-deploy-request.ts";
-import { deployDeployRequestGram } from "./tools/deploy-deploy-request.ts";
-import { closeDeployRequestGram } from "./tools/close-deploy-request.ts";
 
 const gram = new Gram({
   envSchema: {
@@ -36,9 +32,6 @@ const gram = new Gram({
   .extend(listDeployRequestsGram)
   .extend(getDeployRequestGram)
   .extend(getDeployQueueGram)
-  .extend(listDeployOperationsGram)
-  .extend(createDeployRequestGram)
-  .extend(deployDeployRequestGram)
-  .extend(closeDeployRequestGram);
+;
 
 export default gram;

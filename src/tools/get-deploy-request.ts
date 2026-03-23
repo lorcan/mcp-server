@@ -31,8 +31,27 @@ interface DeployOperationSummaryRaw {
   sharded?: boolean;
   shard_count?: number;
   shard_names?: string[];
+  table_recently_used?: boolean;
+  throttled_at?: string | null;
   created_at?: string;
   operations?: ShardOperationRaw[];
+}
+
+interface ThrottlerConfigurationEntry {
+  id?: string;
+  keyspace_name?: string;
+  ratio?: number;
+}
+
+interface ThrottlerConfigurations {
+  keyspaces?: string[];
+  configurations?: ThrottlerConfigurationEntry[];
+}
+
+interface DeploymentRevertRequest {
+  actor?: DeployRequestActor;
+  state?: string;
+  created_at?: string;
 }
 
 interface DeploymentRaw {
@@ -40,12 +59,21 @@ interface DeploymentRaw {
   auto_cutover?: boolean;
   auto_delete_branch?: boolean;
   deployable?: boolean;
+  instant_ddl?: boolean;
+  instant_ddl_eligible?: boolean;
+  table_locked?: boolean;
+  locked_table_name?: string | null;
+  submitted_at?: string | null;
   queued_at?: string | null;
   started_at?: string | null;
   finished_at?: string | null;
   ready_to_cutover_at?: string | null;
   cutover_at?: string | null;
+  lint_errors?: unknown[];
+  deploy_check_errors?: unknown[] | null;
+  deployment_revert_request?: DeploymentRevertRequest | null;
   deploy_operation_summaries?: DeployOperationSummaryRaw[];
+  throttler_configurations?: ThrottlerConfigurations;
 }
 
 interface DeployRequestRaw {
@@ -56,12 +84,12 @@ interface DeployRequestRaw {
   into_branch: string;
   into_branch_sharded?: boolean;
   into_branch_shard_count?: number;
+  branch_deleted?: boolean;
   approved: boolean;
   actor?: DeployRequestActor;
   closed_by?: DeployRequestActor;
   notes: string | null;
   html_url: string;
-  num_comments: number;
   created_at: string;
   updated_at: string;
   closed_at: string | null;
@@ -80,7 +108,6 @@ function filterShardOperation(op: ShardOperationRaw) {
 
 function filterOperationSummary(summary: DeployOperationSummaryRaw) {
   return {
-    id: summary.id,
     state: summary.state,
     keyspace_name: summary.keyspace_name,
     table_name: summary.table_name,
@@ -91,7 +118,8 @@ function filterOperationSummary(summary: DeployOperationSummaryRaw) {
     can_drop_data: summary.can_drop_data,
     deploy_errors: summary.deploy_errors,
     sharded: summary.sharded,
-    shard_count: summary.shard_count,
+    table_recently_used: summary.table_recently_used,
+    throttled_at: summary.throttled_at,
     ...(summary.operations && summary.operations.length > 0
       ? { operations: summary.operations.map(filterShardOperation) }
       : {}),
@@ -107,12 +135,12 @@ function filterDeployRequest(dr: DeployRequestRaw) {
     into_branch: dr.into_branch,
     into_branch_sharded: dr.into_branch_sharded,
     into_branch_shard_count: dr.into_branch_shard_count,
+    branch_deleted: dr.branch_deleted,
     approved: dr.approved,
     actor_name: dr.actor?.display_name ?? null,
     closed_by_name: dr.closed_by?.display_name ?? null,
     notes: dr.notes,
     html_url: dr.html_url,
-    num_comments: dr.num_comments,
     created_at: dr.created_at,
     updated_at: dr.updated_at,
     closed_at: dr.closed_at,
@@ -124,14 +152,53 @@ function filterDeployRequest(dr: DeployRequestRaw) {
             auto_cutover: dr.deployment.auto_cutover,
             auto_delete_branch: dr.deployment.auto_delete_branch,
             deployable: dr.deployment.deployable,
+            instant_ddl: dr.deployment.instant_ddl,
+            instant_ddl_eligible: dr.deployment.instant_ddl_eligible,
+            table_locked: dr.deployment.table_locked,
+            locked_table_name: dr.deployment.locked_table_name,
+            submitted_at: dr.deployment.submitted_at,
             queued_at: dr.deployment.queued_at,
             started_at: dr.deployment.started_at,
             finished_at: dr.deployment.finished_at,
             ready_to_cutover_at: dr.deployment.ready_to_cutover_at,
             cutover_at: dr.deployment.cutover_at,
+            ...(dr.deployment.lint_errors &&
+            dr.deployment.lint_errors.length > 0
+              ? { lint_errors: dr.deployment.lint_errors }
+              : {}),
+            ...(dr.deployment.deploy_check_errors &&
+            dr.deployment.deploy_check_errors.length > 0
+              ? { deploy_check_errors: dr.deployment.deploy_check_errors }
+              : {}),
+            ...(dr.deployment.deployment_revert_request
+              ? {
+                  revert_requested_by:
+                    dr.deployment.deployment_revert_request.actor
+                      ?.display_name ?? null,
+                  revert_state:
+                    dr.deployment.deployment_revert_request.state,
+                  revert_requested_at:
+                    dr.deployment.deployment_revert_request.created_at,
+                }
+              : {}),
             deploy_operation_summaries: (
               dr.deployment.deploy_operation_summaries || []
             ).map(filterOperationSummary),
+            ...(dr.deployment.throttler_configurations
+              ? {
+                  throttler_configurations: {
+                    keyspaces:
+                      dr.deployment.throttler_configurations.keyspaces,
+                    configurations: (
+                      dr.deployment.throttler_configurations.configurations ||
+                      []
+                    ).map((c) => ({
+                      keyspace_name: c.keyspace_name,
+                      ratio: c.ratio,
+                    })),
+                  },
+                }
+              : {}),
           },
         }
       : {}),
